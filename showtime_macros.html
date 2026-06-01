@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#552583">
+<title>Showtime Macros</title>
+<style>
+:root{
+--purple:#552583;
+--gold:#FDB927;
+--bg:#0d0d0d;
+--card:#1a1a1a;
+--red:#ff3b30;
+--text:#f5f5f5;
+}
+body{
+margin:0;padding:20px;background:var(--bg);color:var(--text);
+font-family:monospace;
+}
+.container{max-width:700px;margin:auto;}
+.title{
+text-align:center;font-size:2rem;font-weight:bold;color:var(--gold);
+text-shadow:3px 3px var(--purple);
+margin-bottom:20px;
+}
+.card{
+background:var(--card);border:3px solid var(--purple);
+border-radius:16px;padding:15px;margin-bottom:15px;
+}
+.label{font-weight:bold;margin-bottom:6px;}
+.barwrap{
+height:28px;border:2px solid #555;border-radius:8px;overflow:hidden;
+background:#111;
+}
+.bar{
+height:100%;background:var(--purple);width:0%;
+transition:width .3s;
+}
+.warn{background:var(--gold)!important;}
+.danger{background:var(--red)!important;animation:pulse 1s infinite;}
+@keyframes pulse{50%{opacity:.5;}}
+input{
+width:90px;padding:10px;border-radius:8px;border:none;font-size:16px;
+}
+button{
+padding:10px 14px;border:none;border-radius:8px;
+background:var(--gold);font-weight:bold;
+}
+.remaining{line-height:1.8;}
+.alert{
+font-weight:bold;text-align:center;color:var(--red);
+}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="title">SHOWTIME MACROS</div>
+
+<div id="stats"></div>
+
+<div class="card">
+<h3>Add Protein (g)</h3>
+<input id="proteinInput" type="number" min="0">
+<button onclick="addMacro('protein')">+</button>
+
+<h3>Add Carbs (g)</h3>
+<input id="carbInput" type="number" min="0">
+<button onclick="addMacro('carbs')">+</button>
+
+<h3>Add Fat (g)</h3>
+<input id="fatInput" type="number" min="0">
+<button onclick="addMacro('fat')">+</button>
+</div>
+
+<div class="card remaining" id="remaining"></div>
+
+<div class="card">
+<button onclick="resetDay()">RESET DAY</button>
+</div>
+
+<div class="alert" id="alert"></div>
+</div>
+
+<script>
+const goals={protein:160,carbs:90,fat:40,calories:1500};
+
+function load(){
+let d=JSON.parse(localStorage.getItem("showtimeMacros")||"null");
+const today=new Date().toDateString();
+
+if(!d || d.date!==today){
+d={date:today,protein:0,carbs:0,fat:0};
+localStorage.setItem("showtimeMacros",JSON.stringify(d));
+}
+return d;
+}
+
+function save(d){
+localStorage.setItem("showtimeMacros",JSON.stringify(d));
+render();
+}
+
+function calories(d){
+return d.protein*4+d.carbs*4+d.fat*9;
+}
+
+function addMacro(type){
+let d=load();
+let val=0;
+
+if(type==="protein") val=parseFloat(document.getElementById("proteinInput").value)||0;
+if(type==="carbs") val=parseFloat(document.getElementById("carbInput").value)||0;
+if(type==="fat") val=parseFloat(document.getElementById("fatInput").value)||0;
+
+d[type]+=val;
+save(d);
+
+document.getElementById("proteinInput").value="";
+document.getElementById("carbInput").value="";
+document.getElementById("fatInput").value="";
+}
+
+function barClass(value,goal){
+if(value>=goal) return "danger";
+if(value>=goal*.8) return "warn";
+return "";
+}
+
+function render(){
+const d=load();
+const cal=calories(d);
+
+const metrics=[
+["Protein",d.protein,goals.protein],
+["Carbs",d.carbs,goals.carbs],
+["Fat",d.fat,goals.fat],
+["Calories",cal,goals.calories]
+];
+
+let html="";
+metrics.forEach(m=>{
+let pct=Math.min((m[1]/m[2])*100,100);
+html+=`
+<div class="card">
+<div class="label">${m[0]}: ${m[1]} / ${m[2]}</div>
+<div class="barwrap">
+<div class="bar ${barClass(m[1],m[2])}" style="width:${pct}%"></div>
+</div>
+</div>`;
+});
+
+document.getElementById("stats").innerHTML=html;
+
+document.getElementById("remaining").innerHTML=`
+<b>REMAINING TODAY</b><br>
+Protein: ${Math.max(0,goals.protein-d.protein)}g<br>
+Carbs: ${Math.max(0,goals.carbs-d.carbs)}g<br>
+Fat: ${Math.max(0,goals.fat-d.fat)}g<br>
+Calories: ${Math.max(0,goals.calories-cal)}
+`;
+
+let alerts=[];
+if(d.protein>=goals.protein) alerts.push("🚨 PROTEIN LIMIT REACHED");
+if(d.carbs>=goals.carbs) alerts.push("🚨 CARB LIMIT REACHED");
+if(d.fat>=goals.fat) alerts.push("🚨 FAT LIMIT REACHED");
+if(cal>=goals.calories) alerts.push("🚨 CALORIE LIMIT REACHED");
+
+document.getElementById("alert").innerHTML=alerts.join("<br>");
+}
+
+function resetDay(){
+if(confirm("Reset today's macros?")){
+localStorage.removeItem("showtimeMacros");
+render();
+}
+}
+
+render();
+</script>
+</body>
+</html>
